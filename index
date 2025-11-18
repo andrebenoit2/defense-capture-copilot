@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Defense Capture Copilot – Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #0b0c10;
+      color: #f5f7fa;
+    }
+    .page {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #1f2833;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.6rem;
+    }
+    .subtitle {
+      margin-top: 4px;
+      font-size: 0.9rem;
+      color: #9ba4b4;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      gap: 16px;
+      padding: 16px 24px 24px;
+    }
+    .col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    label {
+      font-size: 0.9rem;
+      color: #c5cbd8;
+    }
+    textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #1f2833;
+      background: #101623;
+      color: #e0e5f1;
+      font-size: 0.9rem;
+      resize: vertical;
+      min-height: 80px;
+    }
+    select {
+      min-height: auto;
+    }
+    button {
+      margin-top: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: none;
+      background: #45a29e;
+      color: #0b0c10;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .panel {
+      background: #101623;
+      border-radius: 10px;
+      border: 1px solid #1f2833;
+      padding: 10px 12px;
+      max-height: 45vh;
+      overflow-y: auto;
+    }
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 0.95rem;
+    }
+    .small {
+      font-size: 0.8rem;
+      color: #9ba4b4;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.85rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #45a29e;
+      font-size: 0.7rem;
+      margin-bottom: 4px;
+      color: #66fcf1;
+    }
+    @media (max-width: 900px) {
+      main { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Defense Capture Copilot (AI Draft Generator)</h1>
+      <div class="subtitle">
+        Demo UI – paste an opportunity, describe your solution, choose an artifact type, and see structured output.
+      </div>
+    </header>
+
+    <main>
+      <!-- Inputs -->
+      <div class="col">
+        <div>
+          <label for="opp">Opportunity Description (RFI/RFP text)</label>
+          <textarea id="opp" placeholder="Paste RFI/RFP snippet here..."></textarea>
+        </div>
+        <div>
+          <label for="sol">Proposed Solution Description</label>
+          <textarea id="sol" placeholder="Describe your proposed software / approach..."></textarea>
+        </div>
+        <div>
+          <label for="type">Artifact Type</label>
+          <select id="type">
+            <option value="">Select...</option>
+            <option>RFI Response</option>
+            <option>RFP Technical Volume</option>
+            <option>White Paper</option>
+            <option>Project Vision Statement</option>
+          </select>
+        </div>
+        <div>
+          <button id="generateBtn">Generate Draft (Mock)</button>
+          <span id="status" class="small"></span>
+        </div>
+        <div class="small">
+          This demo uses a mocked response so you can preview the UX. In production, replace <code>mockGenerate()</code>
+          with a real API call to your backend / LLM.
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="col">
+        <div class="panel">
+          <h2>Key Requirements &amp; Mission Needs</h2>
+          <div id="requirements" class="small">Nothing yet. Fill the inputs and click Generate.</div>
+        </div>
+        <div class="panel">
+          <h2>Structured Outline</h2>
+          <div id="outline" class="small"></div>
+        </div>
+        <div class="panel">
+          <h2>Draft Proposal Sections</h2>
+          <div id="sections" class="small"></div>
+        </div>
+        <div class="panel">
+          <h2>Reusable Template Version</h2>
+          <div id="template" class="small"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const btn = document.getElementById("generateBtn");
+    const statusEl = document.getElementById("status");
+    const oppEl = document.getElementById("opp");
+    const solEl = document.getElementById("sol");
+    const typeEl = document.getElementById("type");
+
+    const reqEl = document.getElementById("requirements");
+    const outlineEl = document.getElementById("outline");
+    const sectionsEl = document.getElementById("sections");
+    const templateEl = document.getElementById("template");
+
+    btn.addEventListener("click", async () => {
+      const opportunity = oppEl.value.trim();
+      const solution = solEl.value.trim();
+      const artifactType = typeEl.value.trim();
+
+      if (!opportunity || !solution || !artifactType) {
+        statusEl.textContent = "Please fill all fields before generating.";
+        return;
+      }
+
+      btn.disabled = true;
+      statusEl.textContent = "Generating (mock)...";
+      reqEl.textContent = "";
+      outlineEl.textContent = "";
+      sectionsEl.textContent = "";
+      templateEl.textContent = "";
+
+      try {
+        const data = await mockGenerate({ opportunity, solution, artifactType });
+
+        renderRequirements(data.requirements || []);
+        renderOutline(data.outline || []);
+        renderSections(data.sections || []);
+        renderTemplate(data.template || "");
+
+        statusEl.textContent = "Done. Review and edit as needed.";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Error: " + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    async function mockGenerate({ opportunity, solution, artifactType }) {
+      await new Promise(r => setTimeout(r, 600));
+
+      return {
+        requirements: [
+          {
+            requirement: "Integrate multi-source Navy logistics, maintenance, and readiness data into a unified environment.",
+            customer_pain: "Current data is siloed across systems, making it difficult to get a real-time picture of fleet readiness.",
+            mission_need: "Commanders need a single operational view to make faster, better-informed decisions."
+          },
+          {
+            requirement: "Provide predictive analytics for maintenance, supply, and personnel gaps 30–90 days out.",
+            customer_pain: "Planning is reactive, with limited ability to anticipate emerging risks.",
+            mission_need: "Forecasting reduces downtime and increases mission availability for deployed platforms."
+          }
+        ],
+        outline: [
+          {
+            section_title: "Executive Summary",
+            section_purpose: "Summarize how the proposed solution addresses Navy readiness, logistics, and mission visibility.",
+            bullets: [
+              "Overview of the integrated data fusion platform",
+              "Key readiness outcomes and decision benefits",
+              "Alignment with Navy digital modernization priorities"
+            ]
+          },
+          {
+            section_title: "Technical Approach",
+            section_purpose: "Describe ingestion, normalization, analytics, and visualization layers.",
+            bullets: [
+              "Data ingestion from legacy and modern Navy systems",
+              "Interoperability and data model design",
+              "Predictive analytics pipeline for readiness forecasting",
+              "Role-based dashboards for operators and commanders"
+            ]
+          }
+        ],
+        sections: [
+          {
+            heading: "Executive Summary",
+            body:
+`[AGENCY] seeks to improve operational visibility, logistics coordination, and mission readiness across distributed naval platforms. Our proposed solution delivers a unified, cloud-deployable data fusion environment that integrates maintenance, logistics, personnel, and operational data into a single mission dashboard.
+
+By consolidating data from existing systems and applying predictive analytics, the platform enables commanders and staff to understand current readiness, anticipate emerging risks 30–90 days out, and prioritize actions that directly support mission outcomes.`
+          },
+          {
+            heading: "Technical Approach – Overview",
+            body:
+`The solution is built around three core layers: (1) data integration and normalization, (2) analytics and forecasting, and (3) role-based visualization.
+
+In the integration layer, connectors ingest structured and unstructured data from systems such as NTCSS, R-Supply, SKED, DRRS-N, and relevant sensor feeds. Data is normalized to a common model aligned to [AGENCY] standards and is exposed through secure APIs for downstream services.
+
+The analytics layer applies machine learning models to historical and streaming data to generate readiness scores and forecast maintenance, supply, and personnel risks. Models are retrained using real-world outcomes to improve fidelity over time.
+
+The visualization layer presents operators, planners, and commanders with role-specific views, alerts, and recommended actions through a mission dashboard designed for both cloud and disconnected environments.`
+          }
+        ],
+        template:
+`[AGENCY] Readiness & Logistics Data Fusion White Paper Template
+
+1. Executive Summary
+   - Briefly describe the mission context for [AGENCY] / [COMMAND].
+   - Summarize how the proposed platform improves operational visibility and readiness.
+   - Highlight expected benefits (e.g., reduced downtime, improved forecasting, faster decision cycles).
+
+2. Current Challenges
+   - Describe current data silos across systems such as [SYSTEM_1], [SYSTEM_2], and [SYSTEM_3].
+   - Explain how limited interoperability impacts readiness and planning.
+   - Identify operational risks driven by fragmented data and manual workflows.
+
+3. Proposed Solution
+   - Provide a high-level description of the integrated data fusion environment.
+   - Explain how data is ingested, normalized, and secured.
+   - Discuss how analytics and dashboards support operators, maintainers, and commanders.
+
+4. Technical Approach
+   - Detail data sources, integration patterns, and data model considerations.
+   - Describe analytics methods (e.g., trend analysis, forecasting, risk scoring).
+   - Outline approaches for disconnected operations and synchronization.
+
+5. Security & Compliance
+   - Summarize how the solution aligns with Zero Trust principles.
+   - Identify RMF controls, IL levels, and identity/access integrations.
+
+6. Implementation & Adoption
+   - Provide a phased rollout approach (pilot, expansion, fleet-wide).
+   - Outline training, change management, and sustainment considerations.
+
+7. Measures of Effectiveness
+   - Propose metrics for readiness improvement, planning accuracy, and user adoption.`
+      };
+    }
+
+    function renderRequirements(reqs) {
+      if (!reqs.length) {
+        reqEl.textContent = "No requirements returned.";
+        return;
+      }
+      reqEl.innerHTML = "";
+      reqs.forEach((r) => {
+        const div = document.createElement("div");
+        div.style.marginBottom = "8px";
+        div.innerHTML = `
+          <span class="badge">Requirement</span>
+          <div><strong>${escapeHtml(r.requirement || "")}</strong></div>
+          <div class="small"><strong>Customer Pain:</strong> ${escapeHtml(r.customer_pain || "")}</div>
+          <div class="small"><strong>Mission Need:</strong> ${escapeHtml(r.mission_need || "")}</div>
+        `;
+        reqEl.appendChild(div);
+      });
+    }
+
+    function renderOutline(outline) {
+      if (!outline.length) {
+        outlineEl.textContent = "No outline returned.";
+        return;
+      }
+      outlineEl.innerHTML = "";
+      outline.forEach((s) => {
+        const div = document.createElement("div");
+        div.style.marginBottom = "8px";
+        const bullets = (s.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join("");
+        div.innerHTML = `
+          <div><strong>${escapeHtml(s.section_title || "")}</strong></div>
+          <div class="small">${escapeHtml(s.section_purpose || "")}</div>
+          <ul class="small">${bullets}</ul>
+        `;
+        outlineEl.appendChild(div);
+      });
+    }
+
+    function renderSections(sections) {
+      if (!sections.length) {
+        sectionsEl.textContent = "No sections returned.";
+        return;
+      }
+      sectionsEl.innerHTML = "";
+      sections.forEach((s) => {
+        const div = document.createElement("div");
+        div.style.marginBottom = "10px";
+        div.innerHTML = `
+          <div><strong>${escapeHtml(s.heading || "")}</strong></div>
+          <pre>${escapeHtml(s.body || "")}</pre>
+        `;
+        sectionsEl.appendChild(div);
+      });
+    }
+
+    function renderTemplate(text) {
+      if (!text) {
+        templateEl.textContent = "No template returned.";
+        return;
+      }
+      templateEl.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+  </script>
+</body>
+</html>
